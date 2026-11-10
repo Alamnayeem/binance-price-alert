@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Binance Price Alert</string>
+    <string name="channel_monitoring_name">Price monitoring</string>
+    <string name="channel_monitoring_desc">Shows the ongoing Binance price monitoring status.</string>
+    <string name="channel_alert_name">Price alerts</string>
+    <string name="channel_alert_desc">Notifies you when a price target is reached.</string>
+</resources>
