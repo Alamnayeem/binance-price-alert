@@ -24,7 +24,7 @@ interface AlertDao {
     suspend fun updateCoinPrice(symbol: String, price: Double, previousPrice: Double?, timestamp: Long)
 
     @Query("UPDATE price_alerts SET isTriggered = 1, isActive = 0 WHERE id = :alertId")
-    suspend fun markAlertTriggered(alertId: Long, hitPrice: Double, direction: String, timestamp: Long)
+    suspend fun markAlertTriggered(alertId: Long)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMonitoredCoin(coin: MonitoredCoin)
