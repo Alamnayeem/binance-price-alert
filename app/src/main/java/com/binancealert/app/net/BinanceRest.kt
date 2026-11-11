@@ -23,9 +23,9 @@ class BinanceRest(baseClient: OkHttpClient, private val cacheFile: File) {
 
     private fun get(url: String): String {
         val req = Request.Builder().url(url).build()
-        client.newCall(req).execute().use { r ->
-            if (!r.isSuccessful) throw IOException("HTTP " + r.code)
-            return r.body?.string() ?: throw IOException("Empty response")
+        client.newCall(req).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("HTTP " + response.code)
+            return response.body?.string() ?: throw IOException("Empty response")
         }
     }
 
@@ -35,10 +35,12 @@ class BinanceRest(baseClient: OkHttpClient, private val cacheFile: File) {
             val arr = JSONObject(body).getJSONArray("symbols")
             val out = ArrayList<CoinPair>()
             for (i in 0 until arr.length()) {
-                val o = arr.getJSONObject(i)
-                if (o.optString("quoteAsset") == "USDT" && o.optString("status") == "TRADING" &&
-                    o.optBoolean("isSpotTradingAllowed", true)) {
-                    out.add(CoinPair(o.getString("symbol"), o.getString("baseAsset")))
+                val item = arr.getJSONObject(i)
+                if (item.optString("quoteAsset") == "USDT" &&
+                    item.optString("status") == "TRADING" &&
+                    item.optBoolean("isSpotTradingAllowed", true)
+                ) {
+                    out.add(CoinPair(item.getString("symbol"), item.getString("baseAsset")))
                 }
             }
             out.sortBy { it.base }
@@ -49,28 +51,47 @@ class BinanceRest(baseClient: OkHttpClient, private val cacheFile: File) {
         }
     }
 
-    private fun readCache(): List<CoinPair>? = try {
-        if (!cacheFile.exists()) return null
-        cacheFile.readLines().mapNotNull { line ->
-            val p = line.split(",")
-            if (p.size == 2) CoinPair(p[0], p[1]) else null
-        }.takeIf { it.isNotEmpty() }
-    } catch (e: Exception) { null }
+    private fun readCache(): List<CoinPair>? {
+        return try {
+            if (!cacheFile.exists()) {
+                null
+            } else {
+                cacheFile.readLines().mapNotNull { line ->
+                    val parts = line.split(",")
+                    if (parts.size == 2) CoinPair(parts[0], parts[1]) else null
+                }.takeIf { it.isNotEmpty() }
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     suspend fun fetchPrice(symbol: String): Double? = withContext(Dispatchers.IO) {
         try {
             JSONObject(get("https://api.binance.com/api/v3/ticker/price?symbol=$symbol"))
                 .getString("price").toDouble()
-        } catch (e: Exception) { null }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     suspend fun fetchCandles(symbol: String, interval: String): List<Candle> = withContext(Dispatchers.IO) {
         require(interval in setOf("1m", "5m", "15m", "1h", "4h", "1d")) { "Unsupported interval" }
-        val rows = JSONArray(get("https://api.binance.com/api/v3/klines?symbol=$symbol&interval=$interval&limit=100"))
+        val rows = JSONArray(
+            get("https://api.binance.com/api/v3/klines?symbol=$symbol&interval=$interval&limit=100")
+        )
         buildList {
             for (i in 0 until rows.length()) {
                 val row = rows.getJSONArray(i)
-                add(Candle(row.getLong(0), row.getString(1).toDouble(), row.getString(2).toDouble(), row.getString(3).toDouble(), row.getString(4).toDouble()))
+                add(
+                    Candle(
+                        openTime = row.getLong(0),
+                        open = row.getString(1).toDouble(),
+                        high = row.getString(2).toDouble(),
+                        low = row.getString(3).toDouble(),
+                        close = row.getString(4).toDouble()
+                    )
+                )
             }
         }
     }
