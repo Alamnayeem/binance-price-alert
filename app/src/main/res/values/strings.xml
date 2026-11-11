@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">BINANCE PRICE ALERT</string>
+    <string name="channel_monitoring_name">Price monitoring</string>
+    <string name="channel_monitoring_desc">Shows that Binance price monitoring is active.</string>
+    <string name="channel_alert_name">Price alerts</string>
+    <string name="channel_alert_desc">Notifies you when a monitored price target is reached.</string>
 </resources>

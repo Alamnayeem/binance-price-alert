@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.binancealert.app"
+    namespace = "com.binance.pricealert"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.binancealert.app"
+        applicationId = "com.binance.pricealert"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -48,5 +48,6 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.google.code.gson:gson:2.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }
