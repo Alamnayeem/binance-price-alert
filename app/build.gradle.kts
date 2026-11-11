@@ -6,11 +6,12 @@ plugins {
 }
 
 android {
-    namespace = "com.binance.pricealert"
+    // The existing application source tree uses com.binancealert.app.
+    namespace = "com.binancealert.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.binance.pricealert"
+        applicationId = "com.binancealert.app"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

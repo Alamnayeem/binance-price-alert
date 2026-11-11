@@ -4,6 +4,7 @@ import android.app.*
 import android.content.*
 import android.os.*
 import androidx.core.app.NotificationCompat
+import com.binancealert.app.R
 import com.binance.pricealert.*
 import com.binance.pricealert.data.repository.*
 import com.binance.pricealert.data.websocket.*
