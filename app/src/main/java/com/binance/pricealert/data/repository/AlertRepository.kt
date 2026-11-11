@@ -44,7 +44,7 @@ class AlertRepository(private val alertDao: AlertDao) {
 
             if (dir != null) {
                 val now = System.currentTimeMillis()
-                alertDao.markAlertTriggered(alert.id, currentPrice, dir, now)
+                alertDao.markAlertTriggered(alert.id)
                 alertDao.insertHistory(AlertHistory(alertId = alert.id, symbol = alert.symbol, targetPrice = target, hitPrice = currentPrice, direction = dir, timestamp = now))
                 triggeredEvents.add(TriggeredAlertEvent(alert, currentPrice, prev, dir, now))
             }
