@@ -10,6 +10,7 @@ import com.binancealert.app.data.PriceAlert
 import com.binancealert.app.data.WatchCoin
 import com.binancealert.app.engine.MonitorController
 import com.binancealert.app.net.BinanceRest
+import com.binancealert.app.net.Candle
 import com.binancealert.app.net.TickerFeed
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,41 +27,44 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     val engine = a.engine
     val ticker = TickerFeed(a.client)
-
-    val settings: StateFlow<AppSettings> = dao.settings()
-        .map { it ?: AppSettings() }
+    val settings: StateFlow<AppSettings> = dao.settings().map { it ?: AppSettings() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
     val watch: StateFlow<List<WatchCoin>> = dao.watchCoins()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val alerts: StateFlow<List<PriceAlert>> = dao.alerts()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-
     val pairs = MutableStateFlow<List<CoinPair>>(emptyList())
     val loading = MutableStateFlow(false)
     val pairsError = MutableStateFlow<String?>(null)
-
-    /** Coin chosen on the Coin List screen, used to pre-fill the Add Alert screen. */
+    val chartCandles = MutableStateFlow<List<Candle>>(emptyList())
+    val chartLoading = MutableStateFlow(false)
+    val chartError = MutableStateFlow<String?>(null)
     var alertSymbol: String = ""
 
-    init {
-        loadPairs()
-    }
+    init { loadPairs() }
 
     fun loadPairs() {
         if (loading.value) return
         viewModelScope.launch {
             loading.value = true
             pairsError.value = null
-            try {
-                pairs.value = rest.loadPairs()
-            } catch (e: Exception) {
-                pairsError.value = "Could not load coin list (" + (e.message ?: "unknown error") + ")"
-            }
+            try { pairs.value = rest.loadPairs() }
+            catch (e: Exception) { pairsError.value = "Could not load coin list (" + (e.message ?: "unknown error") + ")" }
             loading.value = false
         }
     }
 
     suspend fun fetchPrice(symbol: String): Double? = rest.fetchPrice(symbol)
+
+    fun loadCandles(symbol: String, interval: String) {
+        viewModelScope.launch {
+            chartLoading.value = true
+            chartError.value = null
+            try { chartCandles.value = rest.fetchCandles(symbol, interval) }
+            catch (e: Exception) { chartCandles.value = emptyList(); chartError.value = e.message ?: "Could not load chart" }
+            chartLoading.value = false
+        }
+    }
 
     fun toggleWatch(symbol: String, on: Boolean) {
         viewModelScope.launch {
@@ -68,17 +72,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addAlert(symbol: String, target: Double, active: Boolean) {
+    fun toggleFavorite(symbol: String, favorite: Boolean) {
         viewModelScope.launch {
             dao.addCoin(WatchCoin(symbol, System.currentTimeMillis()))
-            dao.addAlert(
-                PriceAlert(
-                    symbol = symbol,
-                    targetPrice = target,
-                    status = if (active) "ACTIVE" else "INACTIVE",
-                    createdAt = System.currentTimeMillis()
-                )
-            )
+            dao.setFavorite(symbol, favorite)
+        }
+    }
+
+    fun addAlert(symbol: String, target: Double, active: Boolean, note: String = "") {
+        viewModelScope.launch {
+            dao.addCoin(WatchCoin(symbol, System.currentTimeMillis()))
+            dao.addAlert(PriceAlert(symbol = symbol, targetPrice = target,
+                status = if (active) "ACTIVE" else "INACTIVE", createdAt = System.currentTimeMillis(), note = note.trim()))
             if (active && !settings.value.monitoring) setMonitoring(true)
         }
     }
@@ -86,14 +91,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun setAlertActive(id: Long, active: Boolean) {
         viewModelScope.launch { dao.setStatus(id, if (active) "ACTIVE" else "INACTIVE") }
     }
-
-    fun deleteAlert(id: Long) {
-        viewModelScope.launch { dao.deleteAlert(id) }
-    }
-
-    fun clearHistory() {
-        viewModelScope.launch { dao.clearHistory() }
-    }
+    fun deleteAlert(id: Long) { viewModelScope.launch { dao.deleteAlert(id) } }
+    fun clearHistory() { viewModelScope.launch { dao.clearHistory() } }
 
     fun setMonitoring(on: Boolean) {
         viewModelScope.launch {
@@ -107,8 +106,5 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { dao.saveSettings(change(settings.value)) }
     }
 
-    override fun onCleared() {
-        ticker.stop()
-        super.onCleared()
-    }
+    override fun onCleared() { ticker.stop(); super.onCleared() }
 }

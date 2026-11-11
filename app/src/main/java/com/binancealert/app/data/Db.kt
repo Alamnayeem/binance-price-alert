@@ -10,12 +10,15 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "watch_coins")
 data class WatchCoin(
     @PrimaryKey val symbol: String,
-    val addedAt: Long
+    val addedAt: Long,
+    val favorite: Boolean = false
 )
 
 /** status: ACTIVE, INACTIVE (paused) or HIT (triggered, kept as history). */
@@ -28,7 +31,8 @@ data class PriceAlert(
     val createdAt: Long,
     val hitPrice: Double? = null,
     val hitAt: Long? = null,
-    val direction: String? = null
+    val direction: String? = null,
+    val note: String = ""
 )
 
 @Entity(tableName = "settings")
@@ -50,6 +54,9 @@ interface AppDao {
 
     @Query("DELETE FROM watch_coins WHERE symbol = :symbol")
     suspend fun removeCoin(symbol: String)
+
+    @Query("UPDATE watch_coins SET favorite = :favorite WHERE symbol = :symbol")
+    suspend fun setFavorite(symbol: String, favorite: Boolean)
 
     @Query("SELECT * FROM alerts ORDER BY createdAt DESC")
     fun alerts(): Flow<List<PriceAlert>>
@@ -85,7 +92,7 @@ interface AppDao {
 
 @Database(
     entities = [WatchCoin::class, PriceAlert::class, AppSettings::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDb : RoomDatabase() {
@@ -95,11 +102,17 @@ abstract class AppDb : RoomDatabase() {
         @Volatile
         private var instance: AppDb? = null
 
-        fun get(context: Context): AppDb =
-            instance ?: synchronized(this) {
-                instance ?: Room.databaseBuilder(
-                    context.applicationContext, AppDb::class.java, "price_alert.db"
-                ).build().also { instance = it }
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE watch_coins ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE alerts ADD COLUMN note TEXT NOT NULL DEFAULT ''")
             }
+        }
+
+        fun get(context: Context): AppDb = instance ?: synchronized(this) {
+            instance ?: Room.databaseBuilder(
+                context.applicationContext, AppDb::class.java, "price_alert.db"
+            ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+        }
     }
 }

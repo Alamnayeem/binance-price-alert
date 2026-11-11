@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,8 +48,13 @@ import com.binancealert.app.ui.ActiveAlertsScreen
 import com.binancealert.app.ui.AddAlertScreen
 import com.binancealert.app.ui.AppTheme
 import com.binancealert.app.ui.AppViewModel
+import com.binancealert.app.ui.ChartScreen
 import com.binancealert.app.ui.CoinListScreen
 import com.binancealert.app.ui.DashboardScreen
+import com.binancealert.app.ui.EnhancedActiveAlertsScreen
+import com.binancealert.app.ui.EnhancedAddAlertScreen
+import com.binancealert.app.ui.EnhancedDashboardScreen
+import com.binancealert.app.ui.EnhancedHistoryScreen
 import com.binancealert.app.ui.HistoryScreen
 import com.binancealert.app.ui.SettingsScreen
 import com.binancealert.app.ui.Surface0
@@ -57,20 +63,17 @@ import com.binancealert.app.ui.Yellow
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
-        )
+        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT), navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT))
         setContent { AppTheme { Root() } }
     }
 }
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
-
 private val tabs = listOf(
-    Tab("dashboard", "Dashboard", Icons.Default.Home),
+    Tab("dashboard", "Home", Icons.Default.Home),
     Tab("coins", "Coins", Icons.AutoMirrored.Filled.List),
-    Tab("add", "Add Alert", Icons.Default.Add),
+    Tab("chart", "Chart", Icons.Default.ShowChart),
+    Tab("add", "Add", Icons.Default.Add),
     Tab("active", "Active", Icons.Default.Notifications),
     Tab("history", "History", Icons.Default.DateRange)
 )
@@ -81,72 +84,32 @@ fun Root(vm: AppViewModel = viewModel()) {
     val ctx = LocalContext.current
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     LaunchedEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             permission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
-
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: "dashboard"
-
-    fun go(target: String, restore: Boolean = true) {
-        nav.navigate(target) {
-            popUpTo("dashboard") { saveState = true }
-            launchSingleTop = true
-            restoreState = restore
-        }
-    }
-
+    fun go(target: String, restore: Boolean = true) { nav.navigate(target) {
+        popUpTo("dashboard") { saveState = true }; launchSingleTop = true; restoreState = restore
+    } }
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text("BINANCE PRICE ALERT", color = Yellow, fontWeight = FontWeight.Bold)
-                },
-                actions = {
-                    IconButton(onClick = { go("settings") }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Surface0,
-                    actionIconContentColor = MaterialTheme.colorScheme.onSurface
-                )
-            )
-        },
-        bottomBar = {
-            NavigationBar(containerColor = Surface0) {
-                tabs.forEach { t ->
-                    NavigationBarItem(
-                        selected = route == t.route,
-                        onClick = { go(t.route) },
-                        icon = { Icon(t.icon, contentDescription = t.label) },
-                        label = { Text(t.label, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Surface0,
-                            selectedTextColor = Yellow,
-                            indicatorColor = Yellow
-                        )
-                    )
-                }
-            }
-        }
+        topBar = { TopAppBar(title = { Text("BINANCE PRICE ALERT", color = Yellow, fontWeight = FontWeight.Bold) },
+            actions = { IconButton(onClick = { go("settings") }) { Icon(Icons.Default.Settings, contentDescription = "Settings") } },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Surface0, actionIconContentColor = MaterialTheme.colorScheme.onSurface)) },
+        bottomBar = { NavigationBar(containerColor = Surface0) { tabs.forEach { t ->
+            NavigationBarItem(selected = route == t.route, onClick = { go(t.route) }, icon = { Icon(t.icon, contentDescription = t.label) },
+                label = { Text(t.label, maxLines = 1) }, colors = NavigationBarItemDefaults.colors(selectedIconColor = Surface0, selectedTextColor = Yellow, indicatorColor = Yellow))
+        } } }
     ) { pad ->
         NavHost(nav, startDestination = "dashboard", modifier = Modifier.padding(pad)) {
-            composable("dashboard") { DashboardScreen(vm) }
-            composable("coins") {
-                CoinListScreen(vm) { symbol ->
-                    vm.alertSymbol = symbol
-                    go("add", restore = false)
-                }
-            }
-            composable("add") { AddAlertScreen(vm) { go("active") } }
-            composable("active") { ActiveAlertsScreen(vm) }
-            composable("history") { HistoryScreen(vm) }
+            composable("dashboard") { EnhancedDashboardScreen(vm) }
+            composable("coins") { CoinListScreen(vm) { symbol -> vm.alertSymbol = symbol; go("add", restore = false) } }
+            composable("chart") { ChartScreen(vm) }
+            composable("add") { EnhancedAddAlertScreen(vm) { go("active") } }
+            composable("active") { EnhancedActiveAlertsScreen(vm) }
+            composable("history") { EnhancedHistoryScreen(vm) }
             composable("settings") { SettingsScreen(vm) }
         }
     }
